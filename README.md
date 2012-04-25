@@ -22,6 +22,8 @@ Map operates on strings or Objects, these are implemented on separate methods:
 Example usage:
 
 ```Java
+// First make sure source files are in the project path.
+
 import com.simplemapstore.BPersistentMap;  
 ..  
 BPersistentMap dbMap = new BPersistentMap();  // If no map exists here, then new is created on working directory
