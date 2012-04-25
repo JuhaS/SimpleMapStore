@@ -17,13 +17,13 @@ Map operates on strings or Objects, these are implemented on separate methods:
 
 Example usage:
 
-import com.simplemapstore.BPersistentMap;
-..
-BPersistentMap dbMap = new BPersistentMap(dbFolderName);
-map.put("myKey","myData");
-// Data is synchronously written to disk
-// Data is written in a folder on the working directory
-String data = map.get("myKey");
-System.out.println(data);
-map.removeString("myKey");
+```Java
+import com.simplemapstore.BPersistentMap;  
+..  
+BPersistentMap dbMap = new BPersistentMap();  // If no map exists here, then new is created on working directory
+map.put("myKey","myData");  // Data is synchronously written to disk  
+String data = map.get("myKey");  // Fetch data from the db
+System.out.println(data);  
+map.removeString("myKey");  // Synchronously removes the data from the persistent db
+```
 
