@@ -18,7 +18,8 @@ Map operates on strings or Objects, these are implemented on separate methods:
   * putObject(String, Object) - Store any Object
   * getObject(String) - Fetch Object from db or null if not found.
   * removeObject(String) - Remove Object entry from db. Returns true if matching key was found.
-
+ * Collection store:
+  * Under development and not properly tested.
 Example usage:
 
 ```Java
