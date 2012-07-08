@@ -14,31 +14,49 @@ import java.util.List;
  * @author juhasu
  */
 public class BPersistentMap {
-    public static final String OBJECT_DB = "objectDb";
-    public static final String STRING_DB = "stringDb";
-    
     /**
+     * String used to identify the object database.
+     */
+	public static final String OBJECT_DB = "objectDb";
+    
+	/**
+     * String used to identify the string database.
+     */
+	public static final String STRING_DB = "stringDb";
+    
+	/**
+     * String used to identify the collection database.  
+     */
+    private static final String collectionDbName = "collectionDb";
+	
+	/**
      * Default folder for stored files (inside working directory).
      */
     public static final String defaultEnvironmentFolder = "appdb";
     
     /**
-     * Database for storing string values.
+     * Database object for storing string values.
      */
     private final Database stringDb;
     
     /**
-     * Database for storing object values.
+     * Database object for storing object values.
      */
     private Database objectDb;
 
-
-    private Environment dbEnv;
-    private String collectionDbName = "collectionDb";
+    /**
+     * Database object for storing collections.
+     */
     private Database collectionDb;
     
     /**
-     * Create/open BPersistentMap at default folder inside working directory. 
+     * Database environment used to interact woth databases.
+     */
+    private Environment dbEnv;
+    
+    
+    /**
+     * Create or open BPersistentMap at default folder inside working directory. 
      * @see #BPersistentMap(String)
      */
     public BPersistentMap() {
@@ -61,29 +79,34 @@ public class BPersistentMap {
         
         dbconf.setAllowCreate(true);
         dbconf.setSortedDuplicates(false);
-        this.stringDb = getDatabase(STRING_DB, true, false);
+        this.stringDb = openDatabase(STRING_DB, true, false);
         
         try {
-            this.objectDb = getDatabase(OBJECT_DB, false, false);
+            this.objectDb = openDatabase(OBJECT_DB, false, false);
         } catch (DatabaseNotFoundException e) {
             // Do nothing, initiate lazily
         }
         
         try {
-            this.collectionDb = getDatabase(collectionDbName, false, true);
+            this.collectionDb = openDatabase(collectionDbName, false, true);
         } catch (DatabaseNotFoundException e) {
             // Do nothing, initiate lazily
         }
     }
     
-    private Database getDatabase(String dbName, boolean allowCreate, boolean allowDuplicates){
+    /**
+     * Open a database using given flags.
+     */
+    private Database openDatabase(String dbName, boolean allowCreate, boolean allowDuplicates){
         DatabaseConfig objDbConf = new DatabaseConfig();
         objDbConf.setAllowCreate(allowCreate);
         objDbConf.setSortedDuplicates(allowDuplicates);
         return this.dbEnv.openDatabase(null, dbName, objDbConf);
-        
     }
     
+    /**
+     * Inits the databased environment used for all databases.
+     */
     private Environment initDatabaseEnvironment(String folder){
         File homeDir = new File(folder);
         if (!homeDir.exists()){
@@ -110,14 +133,14 @@ public class BPersistentMap {
      */
     public void put(String key, String value) {
         if (value == null || key == null){
-            throw new NullPointerException();
+        	throw new PersistentMapException("Key or value can not be null for put()");
         }
         try {
             DatabaseEntry keyValue = new DatabaseEntry(key.getBytes("UTF-8"));
             DatabaseEntry dataValue = new DatabaseEntry(value.getBytes("UTF-8"));
-            OperationStatus status = stringDb.put(null, keyValue, dataValue); //inserting an entry
+            stringDb.put(null, keyValue, dataValue); 
         } catch (UnsupportedEncodingException e) {
-            throw new PersistentMapException(e);
+            throw new PersistentMapException("Key or value has unsupported encoding.", e);
         }
     }
     
@@ -135,15 +158,13 @@ public class BPersistentMap {
      */
     public void putObject(String key, Serializable value) {
         if (value == null || key == null){
-            throw new NullPointerException();
+            throw new PersistentMapException("Key or value can not be null for putObject()");
         }
         if (this.objectDb == null){
-            long start = System.currentTimeMillis();
             DatabaseConfig objDbConf = new DatabaseConfig();
             objDbConf.setAllowCreate(true);
             objDbConf.setSortedDuplicates(true);
-            this.objectDb = getDatabase(OBJECT_DB, true, false);
-            System.out.println("DB creation took (ms): " + (System.currentTimeMillis()-start));
+            this.objectDb = openDatabase(OBJECT_DB, true, false);
         }
         try {
             DatabaseEntry keyValue = new DatabaseEntry(key.getBytes("UTF-8"));
@@ -151,9 +172,9 @@ public class BPersistentMap {
             /**
              * TODO: handle overwriting
              */
-            OperationStatus status = objectDb.put(null, keyValue, dataValue); //inserting an entry
+            objectDb.put(null, keyValue, dataValue); //inserting an entry
         } catch (UnsupportedEncodingException e) {
-            throw new PersistentMapException(e);
+            throw new PersistentMapException("Key or value has unsupported encoding.", e);
         }
     }
 
@@ -177,7 +198,7 @@ public class BPersistentMap {
             }
             
         } catch (UnsupportedEncodingException e) {
-            throw new PersistentMapException(e);
+            throw new PersistentMapException("Key has unsupported encoding.", e);
         } 
     }
     
@@ -196,7 +217,7 @@ public class BPersistentMap {
             return null;
         }
         if (key == null){
-            return new NullPointerException();
+        	throw new PersistentMapException("Key can not be null for getObject()");
         }
         try {
             DatabaseEntry searchEntry = new DatabaseEntry();
@@ -208,7 +229,7 @@ public class BPersistentMap {
                 return deserializeObject(bytes);
             }
         } catch (UnsupportedEncodingException e) {
-            throw new PersistentMapException(e);
+            throw new PersistentMapException("Key has unsupported encoding.", e);
         } 
     }
     
@@ -232,7 +253,7 @@ public class BPersistentMap {
                 return false;
             }
         } catch (UnsupportedEncodingException e) {
-            throw new PersistentMapException(e);
+            throw new PersistentMapException("Key has unsupported encoding.", e);
         }
     }
     
@@ -257,7 +278,7 @@ public class BPersistentMap {
                 return false;
             }
         } catch (UnsupportedEncodingException e) {
-            throw new PersistentMapException(e);
+            throw new PersistentMapException("Key has unsupported encoding.", e);
         }
     }
     
@@ -280,46 +301,60 @@ public class BPersistentMap {
     }
     
     /**
-     * Close 
+     * Close databases.
      */
     public void close() {
-        
-        if (stringDb != null){
-            stringDb.close();
+        if (this.stringDb != null){
+            this.stringDb.close();
         }
-        if (objectDb != null){
-            objectDb.close();
+        if (this.objectDb != null){
+            this.objectDb.close();
         }
         if (this.dbEnv != null){
             this.dbEnv.close();
         }
     }
 
+    /**
+     * Add object to collection with given collection name.
+     * 
+     * TODO: Untested
+     */
     public void addToCollection(String collectionName, Serializable object){
         if (object == null){
-            throw new NullPointerException();
+        	throw new PersistentMapException("object can not be null for addToCollection()");
         }
         if (this.collectionDb == null){
-            this.collectionDb = getDatabase(collectionDbName, true, true);
+            this.collectionDb = openDatabase(collectionDbName, true, true);
         }
         try {
             DatabaseEntry keyValue = new DatabaseEntry(collectionName.getBytes("UTF-8"));
             DatabaseEntry dataValue = new DatabaseEntry(serializeObject(object));
-            OperationStatus status = collectionDb.put(null, keyValue, dataValue); //inserting an entry
+            collectionDb.put(null, keyValue, dataValue); //inserting an entry
         } catch (UnsupportedEncodingException e) {
-            throw new PersistentMapException(e);
+            throw new PersistentMapException("Collection name has unsupported encoding.", e);
         }
     }
     
+    /**
+     * Get list of all items in the collection.
+     * 
+     * TODO: Untested
+     */
     public List<Object> getCollectionItems(String collectionName){
         LinkedList<Object> list = new LinkedList<Object>();
         getCollectionItems(collectionName, list);
         return list;
     }
     
+    /**
+     * Get items belonging to collection.
+     * 
+     * TODO: Untested
+     */
     public void getCollectionItems(String collectionName, List dataList){
         if (collectionName == null){
-            throw new NullPointerException();
+        	throw new PersistentMapException("collectionName can not be null for getCollectionItems()");
         }
         if (collectionDb == null){
             return;
@@ -329,16 +364,15 @@ public class BPersistentMap {
             DatabaseEntry keyValue = new DatabaseEntry(collectionName.getBytes("UTF-8"));
             DatabaseEntry item = new DatabaseEntry();
             cursor = collectionDb.openCursor(null, CursorConfig.DEFAULT);
-            LinkedList<Object> list = new LinkedList<Object>();
             
             while (cursor.getNext(keyValue, item, LockMode.DEFAULT) == OperationStatus.SUCCESS){
                 if (item.getData() != null){
                     Object object = deserializeObject(item.getData());
-                    list.add(object);
+                    dataList.add(object);
                 }
             }
         } catch (UnsupportedEncodingException e) {
-            throw new PersistentMapException(e);
+            throw new PersistentMapException("Collection name has unsupported encoding.", e);
         } finally {
             if (cursor != null){
                 cursor.close();
@@ -346,9 +380,14 @@ public class BPersistentMap {
         } 
     }
     
+    /**
+     * Remove items belonging to given collection.
+     * 
+     * TODO: Untested
+     */
     public boolean removeCollection(String collectionName){
         if (collectionName == null){
-            throw new NullPointerException();
+        	throw new PersistentMapException("collectionName can not be null for removeCollection()");
         }
         if (collectionDb == null){
             return false;
@@ -358,7 +397,6 @@ public class BPersistentMap {
             DatabaseEntry keyValue = new DatabaseEntry(collectionName.getBytes("UTF-8"));
             DatabaseEntry item = new DatabaseEntry();
             cursor = collectionDb.openCursor(null, CursorConfig.DEFAULT);
-            LinkedList<Object> list = new LinkedList<Object>();
             boolean deletedItem = false;
             while (cursor.getNext(keyValue, item, LockMode.DEFAULT) == OperationStatus.SUCCESS){
                 cursor.delete();
@@ -367,19 +405,14 @@ public class BPersistentMap {
             cursor.close();
             return deletedItem;
         } catch (UnsupportedEncodingException e) {
-            throw new PersistentMapException(e);
+            throw new PersistentMapException("Collection name has unsupported encoding.", e);
         } finally {
             if (cursor != null){
                 cursor.close();
             }
         } 
     }
-    
-    
-    /**
-     * //////////// Start of private methods
-     */
-    
+
     /**
      * Serialize an object using standard Java serialization. The class should 
      * fulfill all requirements for serialization.
@@ -397,7 +430,7 @@ public class BPersistentMap {
             byte[] buf = bos.toByteArray();
             return buf;
         } catch (IOException e) {
-            throw new PersistentMapException(e);
+            throw new PersistentMapException("IO exception while trying to serialize an object.", e);
         }
     }
 
@@ -414,9 +447,9 @@ public class BPersistentMap {
             in.close();
             return object;
         } catch (IOException e) {
-            throw new PersistentMapException(e);
+            throw new PersistentMapException("IO exception while trying to deserialize an object.", e);
         } catch (ClassNotFoundException e) {
-            throw new PersistentMapException(e);
+            throw new PersistentMapException("Could not find class for the object.", e);
         }
     }
 }

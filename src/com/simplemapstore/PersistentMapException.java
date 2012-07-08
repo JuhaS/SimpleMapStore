@@ -15,5 +15,4 @@ public class PersistentMapException extends RuntimeException {
     public PersistentMapException(Exception e) {
         super(e);
     }
-    
 }
